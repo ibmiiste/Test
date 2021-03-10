@@ -25,10 +25,10 @@ SET STMT =
     'with r  as (select * from bnxlgp where cbasel=''R''),
          t  as (select * from bnxlgp where cbasel=''T''),
          lr as (select * from bnlgtp),
-         lt as (select DEC('||P_CODUEX ||'/ 1000000, 2, 0) * 1000000 +
+         lt as (select DEC(' Concat P_CODUEX  Concat '/ 1000000, 2, 0) * 1000000 +
                 nuexpl as coduex, l.*, oprlgt
-                from '||BFX||'.blgtl00 l left join '||BFX||'.tlgtl01
-                     using(nidlgt))
+                from ' Concat BFX Concat '.blgtl00 l left join ' Concat BFX 
+                Concat '.tlgtl01 using(nidlgt))
     select ifnull(r.cidmcl, t.cidmcl), r.coduex coduexr, r.nbatim nbatimr,
            r.nescal nescalr, r.netage netager, r.nposit npositr,
            t.coduex coduext, t.nbatim nbatimt, t.nescal nescalt,
@@ -49,7 +49,7 @@ SET STMT =
            (lt.coduex, lt.nbatim, lt.nescal, lt.netage, lt.nposit) =
            (t.coduex, t.nbatim, t.nescal, t.netage, t.nposit) left join
            bnucop c on c.coduex=ifnull(r.coduex, t.coduex)
-      where r.coduex='||P_CODUEX||' or t.coduex='||P_CODUEX;       
+      where r.coduex=' Concat P_CODUEX Concat ' or t.coduex=' Concat P_CODUEX;       
       
       PREPARE LGT_STMT FROM STMT; 
       
