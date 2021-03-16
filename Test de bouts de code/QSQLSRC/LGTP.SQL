@@ -12,44 +12,80 @@ CREATE PROCEDURE  btodr.LGTP(P_CODUEX DEC(8, 0))
 
 BEGIN  
 DECLARE BFX char(5);
-DECLARE STMT char(2048); 
+DECLARE STMT char(4096); 
 DECLARE LGT_CURSOR CURSOR FOR LGT_STMT; 
 
-Set schema Bfbase;
-  
-SELECT 'BFX' Concat CAGEXP INTO BFX
-  FROM Bfbase.BNUEXP WHERE CODUEX=P_CODUEX; 
-  
+SET CURRENT PATH QTEMP, BTODR, BFBASE;
+
+SELECT 'BFX' CONCAT cagexp
+    INTO bfx
+    FROM bfbase.bnuexp
+    WHERE coduex = p_coduex;
+
+SET stmt = 'Create Alias Qtemp.blgtl00 For ' CONCAT BFX CONCAT '.blgtl00';
+EXECUTE IMMEDIATE stmt;
+
+SET stmt = 'Create Alias Qtemp.tlgtl01 For ' CONCAT BFX CONCAT '.tlgtl01';
+EXECUTE IMMEDIATE stmt;
+
+
+DECLARE GLOBAL TEMPORARY TABLE r LIKE bfbase.bnxlgp;
+INSERT INTO Qtemp.r
+    SELECT *
+        FROM bfbase.bnxlgp
+        WHERE cbasel = 'R'
+              AND coduex = p_coduex;
+
+DECLARE GLOBAL TEMPORARY TABLE t LIKE bfbase.bnxlgp;
+INSERT INTO Qtemp.t
+    SELECT *
+        FROM bfbase.bnxlgp
+        WHERE cbasel = 'T'
+              AND coduex = p_coduex;
+
+DECLARE GLOBAL TEMPORARY TABLE lr LIKE bfbase.bnlgtp;
+INSERT INTO Qtemp.lr
+    SELECT *
+        FROM bfbase.bnlgtp
+        WHERE coduex = p_coduex;
+
+DECLARE GLOBAL TEMPORARY TABLE lt AS
+            (SELECT l.*,
+                    oprlgt
+                    FROM Qtemp.blgtl00 l
+                         LEFT JOIN Qtemp.tlgtl01
+                             USING (nidlgt))
+            WITH NO DATA;
+INSERT INTO Qtemp.lt
+    SELECT l.*,
+           oprlgt
+        FROM Qtemp.blgtl00 l
+             LEFT JOIN Qtemp.tlgtl01
+                 USING (nidlgt);   
 
 SET STMT =
-    'with r  as (select * from bnxlgp where cbasel=''R''),
-         t  as (select * from bnxlgp where cbasel=''T''),
-         lr as (select * from bnlgtp),
-         lt as (select DEC(' Concat P_CODUEX  Concat '/ 1000000, 2, 0) * 1000000 +
-                nuexpl as coduex, l.*, oprlgt
-                from ' Concat BFX Concat '.blgtl00 l left join ' Concat BFX 
-                Concat '.tlgtl01 using(nidlgt))
-    select ifnull(r.cidmcl, t.cidmcl), r.coduex coduexr, r.nbatim nbatimr,
-           r.nescal nescalr, r.netage netager, r.nposit npositr,
-           t.coduex coduext, t.nbatim nbatimt, t.nescal nescalt,
-           t.netage netaget, t.nposit npositt,
-           case when fill3a=''THE'' then ifnull(lt.trefcl, lr.trefcl)
-                else ifnull(lr.trefcl, lt.trefcl) end AS customerReference,
-           case when fill3a=''THE'' then ifnull(lt.templg, lr.templg)
-                else ifnull(lr.templg, lt.templg) end AS location,
-           case when fill3a=''THE'' then ifnull(lt.oprlgt, lr.oprlog)
-                else ifnull(lr.oprlog, lt.oprlgt) end AS owner,
-           case when fill3a=''THE'' then ifnull(lt.ctitre, lr.ctitre)
-                else ifnull(lr.ctitre, lt.ctitre) end AS tenantTitle,
-           case when fill3a=''THE'' then ifnull(lt.ooccup, lr.ooccup)
-                else ifnull(lr.ooccup, lt.ooccup) end AS tenantName
-      from r full join t on r.cidmcl=t.cidmcl left join lr on
-           (lr.coduex, lr.nbatim, lr.nescal, lr.netage, lr.nposit) =
-           (r.coduex, r.nbatim, r.nescal, r.netage, r.nposit) left join lt on
-           (lt.coduex, lt.nbatim, lt.nescal, lt.netage, lt.nposit) =
-           (t.coduex, t.nbatim, t.nescal, t.netage, t.nposit) left join
-           bnucop c on c.coduex=ifnull(r.coduex, t.coduex)
-      where r.coduex=' Concat P_CODUEX Concat ' or t.coduex=' Concat P_CODUEX;       
+ 'select ifnull(r.cidmcl, t.cidmcl), r.coduex coduexr, r.nbatim ' Concat
+        'nbatimr, r.nescal nescalr, r.netage netager, r.nposit npositr, ' Concat
+        't.coduex coduext, t.nbatim nbatimt, t.nescal nescalt, ' Concat
+        't.netage netaget, t.nposit npositt, ' Concat
+        'case when fill3a=''THE'' then ifnull(lt.trefcl, lr.trefcl) ' Concat
+             'else ifnull(lr.trefcl, lt.trefcl) end ' Concat
+             'AS customerReference, ' Concat
+        'case when fill3a=''THE'' then ifnull(lt.templg, lr.templg) ' Concat
+             'else ifnull(lr.templg, lt.templg) end AS location, ' Concat
+        'case when fill3a=''THE'' then ifnull(lt.oprlgt, lr.oprlog) ' Concat
+             'else ifnull(lr.oprlog, lt.oprlgt) end AS owner, ' Concat
+        'case when fill3a=''THE'' then ifnull(lt.ctitre, lr.ctitre) ' Concat
+             'else ifnull(lr.ctitre, lt.ctitre) end AS tenantTitle, ' Concat
+        'case when fill3a=''THE'' then ifnull(lt.ooccup, lr.ooccup) ' Concat
+             'else ifnull(lr.ooccup, lt.ooccup) end AS tenantName ' Concat
+   'from Qtemp.r full join Qtemp.t on r.cidmcl=t.cidmcl left join  ' Concat
+        'Qtemp.lr on (lr.nbatim, lr.nescal, lr.netage, lr.nposit) = ' Concat
+        '(r.nbatim, r.nescal, r.netage, r.nposit) ' Concat
+        'left join Qtemp.lt on ' Concat
+        '(lt.nbatim, lt.nescal, lt.netage, lt.nposit) = ' Concat
+        '(t.nbatim, t.nescal, t.netage, t.nposit) left join ' Concat
+        'Bfbase.bnucop c on c.coduex=ifnull(r.coduex, t.coduex)';       
       
       PREPARE LGT_STMT FROM STMT; 
       
